@@ -25,7 +25,7 @@ class Chain(Resource):
     @staticmethod
     def get():
         chain = blockchain.get_chain()
-        return chain
+        return chain, 200
 
     # add transaction and block to blockchain
     def post(self):
@@ -57,7 +57,7 @@ class ChainLargestTransaction(Resource):
     @staticmethod
     def get():
         largest_transaction = {'largest_transaction': blockchain.get_largest_transaction_amount()}
-        return largest_transaction
+        return largest_transaction, 200
 
 
 class ChainAverageTransaction(Resource):
@@ -65,7 +65,7 @@ class ChainAverageTransaction(Resource):
     @staticmethod
     def get():
         average_transaction = {'average_transaction': blockchain.get_average_transaction_amount()}
-        return average_transaction
+        return average_transaction, 200
 
 
 class ChainTotalTokens(Resource):
@@ -73,7 +73,7 @@ class ChainTotalTokens(Resource):
     @staticmethod
     def get():
         total_tokens = {'total_tokens': blockchain.get_total_tokens()}
-        return total_tokens
+        return total_tokens, 200
 
 
 class ChainTotalBlocks(Resource):
@@ -81,7 +81,7 @@ class ChainTotalBlocks(Resource):
     @staticmethod
     def get():
         total_blocks = {'total_blocks': blockchain.get_last_index()}
-        return total_blocks
+        return total_blocks, 200
 
 
 class Block(Resource):
@@ -97,7 +97,7 @@ class Block(Resource):
 
     def get(self, block_index):
         self.abort_if_block_doesnt_exist(block_index)
-        return blockchain.get_chain()[block_index]
+        return blockchain.get_chain()[block_index], 200
 
 
 class Address(Resource):
@@ -105,7 +105,7 @@ class Address(Resource):
     @staticmethod
     def get():
         address_lst = blockchain.get_all_addresses()
-        return address_lst.get('address_lst')
+        return address_lst.get('address_lst'), 200
 
 
 class AddressBalance(Resource):
@@ -121,14 +121,23 @@ class AddressBalance(Resource):
         return balance_data, 200
 
 
+class CreateWallet(Resource):
+
+    @staticmethod
+    def get():
+        wallet_address = blockchain.create_wallet()
+        return {"wallet_address": wallet_address}, 200
+
+
 api.add_resource(Chain, '/chain')
 api.add_resource(ChainLargestTransaction, '/chain/largest-transaction')
 api.add_resource(ChainAverageTransaction, '/chain/average-transaction')
 api.add_resource(ChainTotalTokens, '/chain/total-tokens')
 api.add_resource(ChainTotalBlocks, '/chain/total-blocks')
-api.add_resource(Block, '/chain/block/index=<int:block_index>')
+api.add_resource(Block, '/chain/block/<int:block_index>')
 api.add_resource(Address, '/address')
 api.add_resource(AddressBalance, '/address/<string:address>')
+api.add_resource(CreateWallet, '/address/create')
 
 if __name__ == '__main__':
     app.run(debug=True)
