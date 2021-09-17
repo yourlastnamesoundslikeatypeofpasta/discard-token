@@ -52,7 +52,7 @@ class Chain(Resource):
             return is_transaction_added, 404
 
 
-class ChainLargestTransaction(Resource):
+class TxLargest(Resource):
 
     @staticmethod
     def get():
@@ -60,7 +60,7 @@ class ChainLargestTransaction(Resource):
         return largest_transaction, 200
 
 
-class ChainAverageTransaction(Resource):
+class TxAverage(Resource):
 
     @staticmethod
     def get():
@@ -105,7 +105,7 @@ class Address(Resource):
     @staticmethod
     def get():
         address_lst = blockchain.get_all_addresses()
-        return address_lst.get('address_lst'), 200
+        return address_lst, 200
 
 
 class AddressBalance(Resource):
@@ -129,15 +129,29 @@ class CreateWallet(Resource):
         return {"wallet_address": wallet_address}, 200
 
 
+class Tx(Resource):
+    @staticmethod
+    def abort_if_tx_hash_doesnt_exist(tx_hash):
+        transaction = blockchain.get_tx(tx_hash)
+        if not transaction:
+            abort(404, error_code='transaction_doesnt_exist', error=f"Transaction Hash: {tx_hash} doesn't exist")
+
+    def get(self, tx_hash):
+        transaction = blockchain.get_tx(tx_hash)
+        self.abort_if_tx_hash_doesnt_exist(tx_hash)
+        return {"transaction": transaction}, 200
+
+
 api.add_resource(Chain, '/chain')
-api.add_resource(ChainLargestTransaction, '/chain/largest-transaction')
-api.add_resource(ChainAverageTransaction, '/chain/average-transaction')
 api.add_resource(ChainTotalTokens, '/chain/total-tokens')
 api.add_resource(ChainTotalBlocks, '/chain/total-blocks')
 api.add_resource(Block, '/chain/block/<int:block_index>')
-api.add_resource(Address, '/address')
+api.add_resource(Address, '/all-addresses')
 api.add_resource(AddressBalance, '/address/<string:address>')
 api.add_resource(CreateWallet, '/address/create')
+api.add_resource(Tx, '/tx/<string:tx_hash>')
+api.add_resource(TxLargest, '/tx/largest-transaction')
+api.add_resource(TxAverage, '/tx/average-transaction')
 
 if __name__ == '__main__':
     app.run(debug=True)
