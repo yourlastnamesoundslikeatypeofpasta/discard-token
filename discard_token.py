@@ -50,11 +50,13 @@ class DiscardToken:
         # move current transactions to block transactions lst & add block to chain
         if self.current_trans:
             while self.current_trans:
-                block['transactions'].append(self.current_trans.pop())
+                transaction = self.current_trans.pop()
+                transaction_hash = self.hash_str(transaction)
+                block['transaction_hash'] = transaction_hash
+                block['transactions'].append(transaction)
             self.chain.append(block)
 
     def is_chain_valid(self):
-        # TODO: multiprocess validation
         previous_block = None
         for block in self.chain:
             # validate block 1
@@ -154,6 +156,12 @@ class DiscardToken:
         last_block = self.chain[-1]
         last_block_index = last_block.get('index')
         return last_block_index
+
+    def get_tx(self, tx_hash):
+        for block in self.chain:
+            if block.get('transaction_hash') == tx_hash:
+                transaction = block.get('transactions')[0]
+                return transaction
 
     def issue_newly_generated_coins(self, address, reward):
         issuance_transaction = {
