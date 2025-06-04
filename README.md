@@ -69,6 +69,11 @@ print(response)
 wallet = client.create_wallet()  # GET /address/create
 tx = SDKChain.create_transaction(wallet['private_key'], wallet['address'], 'some_recipient', 10)
 client.post_transaction(tx)
+
+# Save the wallet encrypted on disk
+SDKChain.save_wallet(wallet, 'wallet.dat', 'my-password')
+# Later we can load it again
+wallet = SDKChain.load_wallet('wallet.dat', 'my-password')
 ```
 
 ## License
