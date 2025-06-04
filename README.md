@@ -32,6 +32,9 @@ The blockchain state is stored in `chain_data.json` in the project
 directory so that the chain and any pending transactions survive server
 restarts.
 
+Balances include pending outgoing transfers so double spends cannot be
+submitted before mining completes.
+
 ## Available Endpoints
 
 * `GET /chain` – retrieve the entire blockchain
