@@ -35,6 +35,10 @@ restarts.
 Balances include pending outgoing transfers so double spends cannot be
 submitted before mining completes.
 
+The mining difficulty automatically adjusts after each block to target
+approximately one second per block. The difficulty will never fall below
+1 or rise above 6.
+
 ## Available Endpoints
 
 * `GET /chain` – retrieve the entire blockchain
