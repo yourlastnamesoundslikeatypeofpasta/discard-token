@@ -14,13 +14,13 @@ class DiscardToken:
             'index': 0,
             "timestamp": time.time(),
             'transactions': [
-                {
-                    'sender': "GENESIS COIN BASE",
-                    'recipient': "the_kings_wallet",
-                    'amount': self.genesis_tokens,
-                }
+                self.create_transaction(
+                    "GENESIS COIN BASE",
+                    "the_kings_wallet",
+                    self.genesis_tokens,
+                )
             ],
-            'previous_hash': self.genesis_hash
+            'previous_hash': self.genesis_hash,
         }
         self.difficulty = 4
         self.mining_reward = 50
@@ -29,12 +29,25 @@ class DiscardToken:
         self.chain = [self.genesis_block]
         self.current_trans = []
 
-    def add_transaction(self, sender, recipient, amount):
-        transaction = {
+    def create_transaction(self, sender, recipient, amount):
+        """Create a transaction dict with a unique transaction hash."""
+        tx = {
             'sender': sender,
             'recipient': recipient,
             'amount': amount,
         }
+        # Include timestamp and random value so hash is unique
+        tx['transaction_hash'] = self.hash_str({
+            'sender': sender,
+            'recipient': recipient,
+            'amount': amount,
+            'time': time.time(),
+            'nonce': random.random(),
+        })
+        return tx
+
+    def add_transaction(self, sender, recipient, amount):
+        transaction = self.create_transaction(sender, recipient, amount)
         sender_balance = self.get_wallet_balance(sender).get('balance')
         if sender_balance > amount:
             self.current_trans.append(transaction)
@@ -77,6 +90,10 @@ class DiscardToken:
 
     def get_chain(self):
         return self.chain
+
+    def get_pending_transactions(self):
+        """Return transactions waiting to be mined."""
+        return self.current_trans
 
     def get_all_addresses(self):
         address_lst = []
@@ -153,16 +170,16 @@ class DiscardToken:
 
     def get_tx(self, tx_hash):
         for block in self.chain:
-            if block.get('transaction_hash') == tx_hash:
-                transaction = block.get('transactions')[0]
+            for transaction in block['transactions']:
+                if transaction.get('transaction_hash') == tx_hash:
+                    return transaction
+        # Also check pending transactions
+        for transaction in self.current_trans:
+            if transaction.get('transaction_hash') == tx_hash:
                 return transaction
 
     def issue_newly_generated_coins(self, address, reward):
-        issuance_transaction = {
-            'sender': '',
-            'recipient': address,
-            'amount': reward
-        }
+        issuance_transaction = self.create_transaction('', address, reward)
         self.current_trans.append(issuance_transaction)
 
     def proof_of_work(self, block):

@@ -23,6 +23,9 @@ python main.py
 
 The server will listen on `http://127.0.0.1:5000/`.
 
+Each transaction now includes a `transaction_hash` field that uniquely
+identifies it on the chain.
+
 ## Available Endpoints
 
 * `GET /chain` – retrieve the entire blockchain
@@ -36,6 +39,7 @@ The server will listen on `http://127.0.0.1:5000/`.
 * `GET /tx/<hash>` – fetch a transaction by its hash
 * `GET /tx/largest-transaction` – highest value transaction
 * `GET /tx/average-transaction` – average transaction value
+* `GET /pending-transactions` – list unmined transactions
 
 ## SDK Usage
 

@@ -172,6 +172,13 @@ class ChainTotalTransactions(Resource):
         return {'total_transactions': total_transactions}, 200
 
 
+class PendingTransactions(Resource):
+
+    @staticmethod
+    def get():
+        return {'pending_transactions': blockchain.get_pending_transactions()}, 200
+
+
 class Mine(Resource):
     parser = reqparse.RequestParser()
     parser.add_argument('miner_address', type=str)
@@ -216,6 +223,7 @@ api.add_resource(ChainLastBlock, '/chain/last-block')
 api.add_resource(ChainValid, '/chain/valid')
 api.add_resource(ChainLastHash, '/chain/last-hash')
 api.add_resource(ChainTotalTransactions, '/chain/total-transactions')
+api.add_resource(PendingTransactions, '/pending-transactions')
 api.add_resource(Mine, '/mine')
 api.add_resource(BlockHash, '/chain/block/<int:block_index>/hash')
 api.add_resource(DetermineWinner, '/determine-winner')

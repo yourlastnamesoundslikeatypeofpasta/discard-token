@@ -52,6 +52,11 @@ class SDKChain:
         resp = requests.get(url)
         return {'status': resp.status_code, 'data': resp.json()}
 
+    def get_pending_transactions(self):
+        url = os.path.join('http://127.0.0.1:5000', 'pending-transactions')
+        resp = requests.get(url)
+        return {'status': resp.status_code, 'data': resp.json()}
+
     def mine(self, miner_address=None):
         url = os.path.join('http://127.0.0.1:5000', 'mine')
         params = {'miner_address': miner_address} if miner_address else {}
