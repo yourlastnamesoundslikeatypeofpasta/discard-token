@@ -4,10 +4,13 @@ import string
 import json
 import time
 import hashlib
+import base64
 
 import requests
 from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import ec
+from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
+from cryptography.fernet import Fernet
 
 
 class SDKChain:
@@ -27,6 +30,38 @@ class SDKChain:
     def create_wallet():
         resp = requests.get('http://127.0.0.1:5000/address/create')
         return resp.json()
+
+    @staticmethod
+    def _derive_key(password: str, salt: bytes) -> bytes:
+        """Derive a symmetric key from the given password and salt."""
+        kdf = PBKDF2HMAC(
+            algorithm=hashes.SHA256(),
+            length=32,
+            salt=salt,
+            iterations=390000,
+        )
+        return base64.urlsafe_b64encode(kdf.derive(password.encode()))
+
+    @staticmethod
+    def save_wallet(wallet: dict, path: str, password: str) -> None:
+        """Encrypt wallet data with password and save to path."""
+        salt = os.urandom(16)
+        key = SDKChain._derive_key(password, salt)
+        f = Fernet(key)
+        token = f.encrypt(json.dumps(wallet).encode())
+        with open(path, 'wb') as fobj:
+            fobj.write(salt + token)
+
+    @staticmethod
+    def load_wallet(path: str, password: str) -> dict:
+        """Load and decrypt wallet data from path."""
+        with open(path, 'rb') as fobj:
+            data = fobj.read()
+        salt, token = data[:16], data[16:]
+        key = SDKChain._derive_key(password, salt)
+        f = Fernet(key)
+        decrypted = f.decrypt(token)
+        return json.loads(decrypted.decode())
 
     @staticmethod
     def create_transaction(private_key_pem, sender, recipient, amount):
