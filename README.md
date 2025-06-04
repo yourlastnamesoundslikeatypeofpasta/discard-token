@@ -24,7 +24,9 @@ python main.py
 The server will listen on `http://127.0.0.1:5000/`.
 
 Each transaction now includes a `transaction_hash` field that uniquely
-identifies it on the chain.
+identifies it on the chain. Transactions are signed using the sender's
+private key. Wallet addresses are derived from the SHA256 hash of the
+public key.
 
 ## Available Endpoints
 
@@ -35,7 +37,7 @@ identifies it on the chain.
 * `GET /chain/block/<index>` – fetch a block by index
 * `GET /all-addresses` – list every known wallet address
 * `GET /address/<address>` – view balance details for an address
-* `GET /address/create` – generate a new wallet address
+* `GET /address/create` – generate a new wallet with keys
 * `GET /tx/<hash>` – fetch a transaction by its hash
 * `GET /tx/largest-transaction` – highest value transaction
 * `GET /tx/average-transaction` – average transaction value
@@ -51,6 +53,11 @@ from sdk import SDKChain
 client = SDKChain('chain')
 response = client.get_chain()
 print(response)
+
+# Creating and posting a signed transaction
+wallet = client.create_wallet()  # GET /address/create
+tx = SDKChain.create_transaction(wallet['private_key'], wallet['address'], 'some_recipient', 10)
+client.post_transaction(tx)
 ```
 
 ## License
