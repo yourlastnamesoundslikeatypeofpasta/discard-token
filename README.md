@@ -29,11 +29,17 @@ private key. Wallet addresses are derived from the SHA256 hash of the
 public key.
 
 The blockchain state is stored in `chain_data.json` in the project
-directory so that the chain and any pending transactions survive server
-restarts.
+directory so that the chain and the mempool of pending transactions
+survive server restarts.
 
 Balances include pending outgoing transfers so double spends cannot be
 submitted before mining completes.
+
+Transactions require a small fee (default `1` token) which is paid to the
+miner of the block. The fee amount is recorded in the `fee` field of each
+transaction and is included in the signature payload. Duplicate transactions
+or those with non-positive amounts will be rejected before entering the
+mempool.
 
 The mining difficulty automatically adjusts after each block to target
 approximately one second per block. The difficulty will never fall below

@@ -13,6 +13,7 @@ from cryptography.exceptions import InvalidSignature
 
 class DiscardToken:
     def __init__(self, storage_file='chain_data.json'):
+        self.tx_fee = 1
         self.genesis_hash = self.hash_str('DISKARDDDD DOLLARRRR TO THE MOONNNNNN!🚀')
         self.genesis_tokens = 99999999999999
         self.genesis_block = {
@@ -23,6 +24,7 @@ class DiscardToken:
                     "GENESIS COIN BASE",
                     "the_kings_wallet",
                     self.genesis_tokens,
+                    fee=0
                 )
             ],
             'previous_hash': self.genesis_hash,
@@ -64,12 +66,15 @@ class DiscardToken:
         except IOError:
             pass
 
-    def create_transaction(self, sender, recipient, amount, private_key_pem=None):
+    def create_transaction(self, sender, recipient, amount, private_key_pem=None, fee=None):
         """Create and sign a transaction dict."""
+        if fee is None:
+            fee = self.tx_fee
         payload = {
             'sender': sender,
             'recipient': recipient,
             'amount': amount,
+            'fee': fee,
             'timestamp': time.time(),
             'nonce': random.random(),
         }
@@ -93,7 +98,7 @@ class DiscardToken:
         return tx
 
     def _verify_transaction(self, transaction):
-        required = ['sender', 'recipient', 'amount', 'timestamp', 'nonce',
+        required = ['sender', 'recipient', 'amount', 'fee', 'timestamp', 'nonce',
                     'transaction_hash', 'signature', 'public_key']
         if not all(k in transaction for k in required):
             return False
@@ -102,6 +107,7 @@ class DiscardToken:
             'sender': transaction['sender'],
             'recipient': transaction['recipient'],
             'amount': transaction['amount'],
+            'fee': transaction['fee'],
             'timestamp': transaction['timestamp'],
             'nonce': transaction['nonce'],
         }
@@ -126,12 +132,17 @@ class DiscardToken:
     def add_transaction(self, transaction):
         if not self._verify_transaction(transaction):
             return {'status': False, 'error': 'Invalid Signature'}
+        if transaction['amount'] <= 0 or transaction.get('fee', 0) < 0:
+            return {'status': False, 'error': 'Invalid Amount'}
+        if self.get_tx(transaction['transaction_hash']):
+            return {'status': False, 'error': 'Duplicate Transaction'}
         sender = transaction['sender']
         amount = transaction['amount']
+        fee = transaction.get('fee', self.tx_fee)
         sender_balance = self.get_wallet_balance(sender).get('balance')
         pending_outgoing = self.get_pending_outgoing_total(sender)
         available_balance = sender_balance - pending_outgoing
-        if available_balance > amount:
+        if available_balance > amount + fee:
             self.current_trans.append(transaction)
             self._save_state()
             return {'status': True, 'transaction': transaction}
@@ -214,7 +225,7 @@ class DiscardToken:
         for block in self.chain:
             for transaction in block['transactions']:
                 if transaction['sender'] == address:
-                    amount_sent += transaction['amount']
+                    amount_sent += transaction['amount'] + transaction.get('fee', 0)
                     transactions += 1
 
         # find difference
@@ -275,7 +286,7 @@ class DiscardToken:
                 return transaction
 
     def issue_newly_generated_coins(self, address, reward):
-        issuance_transaction = self.create_transaction('', address, reward)
+        issuance_transaction = self.create_transaction('', address, reward, fee=0)
         self.current_trans.append(issuance_transaction)
         self._save_state()
 
@@ -295,8 +306,9 @@ class DiscardToken:
         self._save_state()
 
     def mine(self, miner_address=None):
+        total_fees = sum(tx.get('fee', 0) for tx in self.current_trans)
         if miner_address:
-            self.issue_newly_generated_coins(miner_address, self.mining_reward)
+            self.issue_newly_generated_coins(miner_address, self.mining_reward + total_fees)
         if not self.current_trans:
             return {'status': False, 'error': 'No transactions to mine'}
         start_time = time.time()

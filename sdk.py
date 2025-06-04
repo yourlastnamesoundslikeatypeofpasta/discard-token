@@ -64,12 +64,13 @@ class SDKChain:
         return json.loads(decrypted.decode())
 
     @staticmethod
-    def create_transaction(private_key_pem, sender, recipient, amount):
+    def create_transaction(private_key_pem, sender, recipient, amount, fee=1):
         private_key = serialization.load_pem_private_key(private_key_pem.encode(), password=None)
         payload = {
             'sender': sender,
             'recipient': recipient,
             'amount': amount,
+            'fee': fee,
             'timestamp': time.time(),
             'nonce': random.random(),
         }
