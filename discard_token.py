@@ -22,6 +22,10 @@ class DiscardToken:
             ],
             'previous_hash': self.genesis_hash
         }
+        self.difficulty = 4
+        self.mining_reward = 50
+        self.genesis_block['nonce'] = 0
+        self.genesis_block['hash'] = self.get_block_hash(self.genesis_block)
         self.chain = [self.genesis_block]
         self.current_trans = []
 
@@ -37,47 +41,37 @@ class DiscardToken:
             return {'status': True, 'transaction': transaction}
         return {'status': False, 'error': 'Insufficient Balance'}
 
-    def add_block(self):
-        # self.issue_newly_generated_coins(winner_address, winner_reward)
-        block = {
-            'index': self.get_last_index() + 1,
-            "timestamp": time.time(),
-            'transactions': [
-            ],
-            'previous_hash': self.get_last_block_hash()
-        }
-
-        # move current transactions to block transactions lst & add block to chain
-        if self.current_trans:
-            while self.current_trans:
-                transaction = self.current_trans.pop()
-                transaction_hash = self.hash_str(transaction)
-                block['transaction_hash'] = transaction_hash
-                block['transactions'].append(transaction)
-            self.chain.append(block)
+    def add_block(self, block):
+        """Add a mined block to the chain after validation."""
+        previous_hash = self.get_last_block_hash()
+        if block['previous_hash'] != previous_hash:
+            return False
+        block_hash = self.get_block_hash({k: block[k] for k in block if k != 'hash'})
+        if not block_hash.startswith('0' * self.difficulty):
+            return False
+        if block_hash != block['hash']:
+            return False
+        self.chain.append(block)
+        return True
 
     def is_chain_valid(self):
-        previous_block = None
-        for block in self.chain:
-            # validate block 1
-            if block['index'] == self.chain[0]['index']:
-                if block['previous_hash'] == self.genesis_hash:
-                    previous_block = block
-                    continue
-
-            # validate other blocks
-            previous_block_hash = self.get_block_hash(previous_block)
-            if previous_block_hash == block['previous_hash']:
-                previous_block = block
-                continue
-            else:
-                print(block)
+        for index in range(1, len(self.chain)):
+            current = self.chain[index]
+            previous = self.chain[index - 1]
+            prev_hash = self.get_block_hash({k: previous[k] for k in previous if k != 'hash'})
+            if current['previous_hash'] != prev_hash:
+                return False
+            calculated_hash = self.get_block_hash({k: current[k] for k in current if k != 'hash'})
+            if not calculated_hash.startswith('0' * self.difficulty):
+                return False
+            if calculated_hash != current['hash']:
                 return False
         return True
 
     def get_last_block_hash(self):
         last_block = self.chain[-1]
-        block_string = json.dumps(last_block, sort_keys=True).encode()
+        block_contents = {k: last_block[k] for k in last_block if k != 'hash'}
+        block_string = json.dumps(block_contents, sort_keys=True).encode()
         previous_block_hash = hashlib.sha256(block_string).hexdigest()
         return previous_block_hash
 
@@ -171,11 +165,33 @@ class DiscardToken:
         }
         self.current_trans.append(issuance_transaction)
 
-    def mine(self):
-        self.add_block()
-        if self.is_chain_valid():
-            return {'status': True, 'block': self.chain[-1]}
-        return {'status': False, 'current_trans': self.current_trans, 'chain': self.chain}
+    def proof_of_work(self, block):
+        block['nonce'] = 0
+        block_hash = self.get_block_hash(block)
+        while not block_hash.startswith('0' * self.difficulty):
+            block['nonce'] += 1
+            block_hash = self.get_block_hash(block)
+        return block_hash
+
+    def mine(self, miner_address=None):
+        if miner_address:
+            self.issue_newly_generated_coins(miner_address, self.mining_reward)
+        if not self.current_trans:
+            return {'status': False, 'error': 'No transactions to mine'}
+        block = {
+            'index': self.get_last_index() + 1,
+            'timestamp': time.time(),
+            'transactions': self.current_trans.copy(),
+            'previous_hash': self.get_last_block_hash(),
+            'nonce': 0
+        }
+        block_hash = self.proof_of_work(block)
+        block['hash'] = block_hash
+        self.current_trans = []
+        added = self.add_block(block)
+        if added and self.is_chain_valid():
+            return {'status': True, 'block': block}
+        return {'status': False, 'block': block}
 
     @staticmethod
     def create_wallet():
@@ -219,3 +235,8 @@ class DiscardToken:
             print(worker_lst)
             print(highest_payout)
             print(payouts_lst)
+
+            return None
+
+
+
