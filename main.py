@@ -16,10 +16,6 @@ blockchain = DiscardToken()
 
 
 class Chain(Resource):
-    parser = reqparse.RequestParser()
-    parser.add_argument('sender', type=str)
-    parser.add_argument('recipient', type=str)
-    parser.add_argument('amount', type=int)
 
     # get blockchain
     @staticmethod
@@ -29,17 +25,8 @@ class Chain(Resource):
 
     # add transaction and block to blockchain
     def post(self):
-        # get args
-        args = self.parser.parse_args()
-        sender = args.get('sender')
-        recipient = args.get('recipient')
-        amount = args.get('amount')
-
-        # add transaction to block
-        is_transaction_added = blockchain.add_transaction(
-            sender,
-            recipient,
-            amount)
+        tx_data = request.get_json(force=True)
+        is_transaction_added = blockchain.add_transaction(tx_data)
 
         # add block to chain
         if is_transaction_added.get('status'):
@@ -125,8 +112,8 @@ class CreateWallet(Resource):
 
     @staticmethod
     def get():
-        wallet_address = blockchain.create_wallet()
-        return {"wallet_address": wallet_address}, 200
+        wallet = blockchain.create_wallet()
+        return wallet, 200
 
 
 class Tx(Resource):

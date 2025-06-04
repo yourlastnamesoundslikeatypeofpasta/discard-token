@@ -1,9 +1,13 @@
 import random
 import hashlib
 import json
-import string
 import time
 from statistics import mean
+import string
+
+from cryptography.hazmat.primitives import hashes, serialization
+from cryptography.hazmat.primitives.asymmetric import ec
+from cryptography.exceptions import InvalidSignature
 
 
 class DiscardToken:
@@ -29,25 +33,70 @@ class DiscardToken:
         self.chain = [self.genesis_block]
         self.current_trans = []
 
-    def create_transaction(self, sender, recipient, amount):
-        """Create a transaction dict with a unique transaction hash."""
-        tx = {
+    def create_transaction(self, sender, recipient, amount, private_key_pem=None):
+        """Create and sign a transaction dict."""
+        payload = {
             'sender': sender,
             'recipient': recipient,
             'amount': amount,
-        }
-        # Include timestamp and random value so hash is unique
-        tx['transaction_hash'] = self.hash_str({
-            'sender': sender,
-            'recipient': recipient,
-            'amount': amount,
-            'time': time.time(),
+            'timestamp': time.time(),
             'nonce': random.random(),
-        })
+        }
+        tx = payload.copy()
+        tx['transaction_hash'] = self.hash_str(payload)
+
+        if private_key_pem:
+            private_key = serialization.load_pem_private_key(
+                private_key_pem.encode(), password=None
+            )
+            signature = private_key.sign(
+                json.dumps(payload, sort_keys=True).encode(),
+                ec.ECDSA(hashes.SHA256()),
+            )
+            tx['signature'] = signature.hex()
+            public_key = private_key.public_key()
+            tx['public_key'] = public_key.public_bytes(
+                serialization.Encoding.PEM,
+                serialization.PublicFormat.SubjectPublicKeyInfo,
+            ).decode()
         return tx
 
-    def add_transaction(self, sender, recipient, amount):
-        transaction = self.create_transaction(sender, recipient, amount)
+    def _verify_transaction(self, transaction):
+        required = ['sender', 'recipient', 'amount', 'timestamp', 'nonce',
+                    'transaction_hash', 'signature', 'public_key']
+        if not all(k in transaction for k in required):
+            return False
+
+        payload = {
+            'sender': transaction['sender'],
+            'recipient': transaction['recipient'],
+            'amount': transaction['amount'],
+            'timestamp': transaction['timestamp'],
+            'nonce': transaction['nonce'],
+        }
+        if self.hash_str(payload) != transaction['transaction_hash']:
+            return False
+
+        if self.hash_str(transaction['public_key']) != transaction['sender']:
+            return False
+
+        public_key = serialization.load_pem_public_key(
+            transaction['public_key'].encode())
+        try:
+            public_key.verify(
+                bytes.fromhex(transaction['signature']),
+                json.dumps(payload, sort_keys=True).encode(),
+                ec.ECDSA(hashes.SHA256()),
+            )
+            return True
+        except InvalidSignature:
+            return False
+
+    def add_transaction(self, transaction):
+        if not self._verify_transaction(transaction):
+            return {'status': False, 'error': 'Invalid Signature'}
+        sender = transaction['sender']
+        amount = transaction['amount']
         sender_balance = self.get_wallet_balance(sender).get('balance')
         if sender_balance > amount:
             self.current_trans.append(transaction)
@@ -212,9 +261,24 @@ class DiscardToken:
 
     @staticmethod
     def create_wallet():
-        wallet_address = ''.join(
-            random.choices(string.ascii_letters + string.digits, k=random.choice([i for i in range(25, 36)])))
-        return wallet_address
+        """Generate an ECDSA key pair and return wallet details."""
+        private_key = ec.generate_private_key(ec.SECP256K1())
+        priv_pem = private_key.private_bytes(
+            serialization.Encoding.PEM,
+            serialization.PrivateFormat.PKCS8,
+            serialization.NoEncryption(),
+        ).decode()
+        public_key = private_key.public_key()
+        pub_pem = public_key.public_bytes(
+            serialization.Encoding.PEM,
+            serialization.PublicFormat.SubjectPublicKeyInfo,
+        ).decode()
+        address = DiscardToken.hash_str(pub_pem)
+        return {
+            'private_key': priv_pem,
+            'public_key': pub_pem,
+            'address': address,
+        }
 
     @staticmethod
     def hash_str(str_to_hash):

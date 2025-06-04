@@ -1,8 +1,13 @@
 import os
 import random
 import string
+import json
+import time
+import hashlib
 
 import requests
+from cryptography.hazmat.primitives import hashes, serialization
+from cryptography.hazmat.primitives.asymmetric import ec
 
 
 class SDKChain:
@@ -18,19 +23,62 @@ class SDKChain:
         data = r_get_chain.json()
         return {'status': status, 'data': data}
 
-    def post_transaction(self, sender, recipient, amount):
-        transaction = {'sender': sender, 'recipient': recipient, 'amount': amount}
-        r_post_transaction = requests.post(self.chain_path, data=transaction)
+    @staticmethod
+    def create_wallet():
+        resp = requests.get('http://127.0.0.1:5000/address/create')
+        return resp.json()
+
+    @staticmethod
+    def create_transaction(private_key_pem, sender, recipient, amount):
+        private_key = serialization.load_pem_private_key(private_key_pem.encode(), password=None)
+        payload = {
+            'sender': sender,
+            'recipient': recipient,
+            'amount': amount,
+            'timestamp': time.time(),
+            'nonce': random.random(),
+        }
+        tx = payload.copy()
+        tx['transaction_hash'] = hashlib.sha256(
+            json.dumps(payload, sort_keys=True).encode()
+        ).hexdigest()
+        signature = private_key.sign(
+            json.dumps(payload, sort_keys=True).encode(),
+            ec.ECDSA(hashes.SHA256()),
+        )
+        tx['signature'] = signature.hex()
+        tx['public_key'] = private_key.public_key().public_bytes(
+            serialization.Encoding.PEM,
+            serialization.PublicFormat.SubjectPublicKeyInfo,
+        ).decode()
+        return tx
+
+    def post_transaction(self, transaction):
+        r_post_transaction = requests.post(self.chain_path, json=transaction)
         status = r_post_transaction.status_code
         data = r_post_transaction.json()
         return {'status': status, 'data': data}
 
     def create_fake_transactions(self, num_transactions):
-        for i in range(num_transactions):
-            random_recipient = ''.join(random.choices(string.ascii_letters + string.digits, k=random.choice(
-                [i for i in range(25, 36)])))  # create 25 char address
-
-            self.post_transaction('the_kings_wallet', random_recipient, random.randint(0, num_transactions))
+        for _ in range(num_transactions):
+            random_recipient = ''.join(
+                random.choices(string.ascii_letters + string.digits, k=32)
+            )
+            tx = {
+                'sender': 'the_kings_wallet',
+                'recipient': random_recipient,
+                'amount': random.randint(0, num_transactions),
+                'timestamp': time.time(),
+                'nonce': random.random(),
+                'transaction_hash': '',
+                'signature': '',
+                'public_key': '',
+            }
+            # Unsigned transactions for fake data
+            tx['transaction_hash'] = hashlib.sha256(
+                json.dumps({k: tx[k] for k in ['sender','recipient','amount','timestamp','nonce']}, sort_keys=True).encode()
+            ).hexdigest()
+            self.post_transaction(tx)
 
     def get_last_block(self):
         url = os.path.join(self.chain_path, 'last-block')
