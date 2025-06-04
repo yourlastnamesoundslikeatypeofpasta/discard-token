@@ -31,3 +31,39 @@ class SDKChain:
                 [i for i in range(25, 36)])))  # create 25 char address
 
             self.post_transaction('the_kings_wallet', random_recipient, random.randint(0, num_transactions))
+
+    def get_last_block(self):
+        url = os.path.join(self.chain_path, 'last-block')
+        resp = requests.get(url)
+        return {'status': resp.status_code, 'data': resp.json()}
+
+    def get_validity(self):
+        url = os.path.join(self.chain_path, 'valid')
+        resp = requests.get(url)
+        return {'status': resp.status_code, 'data': resp.json()}
+
+    def get_last_hash(self):
+        url = os.path.join(self.chain_path, 'last-hash')
+        resp = requests.get(url)
+        return {'status': resp.status_code, 'data': resp.json()}
+
+    def get_total_transactions(self):
+        url = os.path.join(self.chain_path, 'total-transactions')
+        resp = requests.get(url)
+        return {'status': resp.status_code, 'data': resp.json()}
+
+    def mine(self, miner_address=None):
+        url = os.path.join('http://127.0.0.1:5000', 'mine')
+        params = {'miner_address': miner_address} if miner_address else {}
+        resp = requests.get(url, params=params)
+        return {'status': resp.status_code, 'data': resp.json()}
+
+    def get_block_hash(self, block_index):
+        url = os.path.join(self.chain_path, f'block/{block_index}/hash')
+        resp = requests.get(url)
+        return {'status': resp.status_code, 'data': resp.json()}
+
+    def determine_winner(self):
+        url = os.path.join('http://127.0.0.1:5000', 'determine-winner')
+        resp = requests.get(url)
+        return {'status': resp.status_code, 'data': resp.json()}
