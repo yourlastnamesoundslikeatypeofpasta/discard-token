@@ -28,6 +28,10 @@ identifies it on the chain. Transactions are signed using the sender's
 private key. Wallet addresses are derived from the SHA256 hash of the
 public key.
 
+The blockchain state is stored in `chain_data.json` in the project
+directory so that the chain and any pending transactions survive server
+restarts.
+
 ## Available Endpoints
 
 * `GET /chain` – retrieve the entire blockchain

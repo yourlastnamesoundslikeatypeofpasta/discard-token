@@ -1,3 +1,4 @@
+import os
 import random
 import hashlib
 import json
@@ -11,7 +12,7 @@ from cryptography.exceptions import InvalidSignature
 
 
 class DiscardToken:
-    def __init__(self):
+    def __init__(self, storage_file='chain_data.json'):
         self.genesis_hash = self.hash_str('DISKARDDDD DOLLARRRR TO THE MOONNNNNN!🚀')
         self.genesis_tokens = 99999999999999
         self.genesis_block = {
@@ -32,6 +33,32 @@ class DiscardToken:
         self.genesis_block['hash'] = self.get_block_hash(self.genesis_block)
         self.chain = [self.genesis_block]
         self.current_trans = []
+        self.storage_file = storage_file
+        self._load_state()
+        self._save_state()
+
+    def _load_state(self):
+        """Load chain and pending transactions from disk if available."""
+        if os.path.exists(self.storage_file):
+            try:
+                with open(self.storage_file, 'r') as f:
+                    data = json.load(f)
+                    self.chain = data.get('chain', self.chain)
+                    self.current_trans = data.get('pending', self.current_trans)
+            except (IOError, json.JSONDecodeError):
+                pass
+
+    def _save_state(self):
+        """Persist chain and pending transactions to disk."""
+        data = {
+            'chain': self.chain,
+            'pending': self.current_trans,
+        }
+        try:
+            with open(self.storage_file, 'w') as f:
+                json.dump(data, f)
+        except IOError:
+            pass
 
     def create_transaction(self, sender, recipient, amount, private_key_pem=None):
         """Create and sign a transaction dict."""
@@ -100,6 +127,7 @@ class DiscardToken:
         sender_balance = self.get_wallet_balance(sender).get('balance')
         if sender_balance > amount:
             self.current_trans.append(transaction)
+            self._save_state()
             return {'status': True, 'transaction': transaction}
         return {'status': False, 'error': 'Insufficient Balance'}
 
@@ -114,6 +142,7 @@ class DiscardToken:
         if block_hash != block['hash']:
             return False
         self.chain.append(block)
+        self._save_state()
         return True
 
     def is_chain_valid(self):
@@ -230,6 +259,7 @@ class DiscardToken:
     def issue_newly_generated_coins(self, address, reward):
         issuance_transaction = self.create_transaction('', address, reward)
         self.current_trans.append(issuance_transaction)
+        self._save_state()
 
     def proof_of_work(self, block):
         block['nonce'] = 0
