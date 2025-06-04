@@ -28,6 +28,8 @@ class DiscardToken:
             'previous_hash': self.genesis_hash,
         }
         self.difficulty = 4
+        self.max_difficulty = 6
+        self.target_block_time = 1.0
         self.mining_reward = 50
         self.genesis_block['nonce'] = 0
         self.genesis_block['hash'] = self.get_block_hash(self.genesis_block)
@@ -45,6 +47,7 @@ class DiscardToken:
                     data = json.load(f)
                     self.chain = data.get('chain', self.chain)
                     self.current_trans = data.get('pending', self.current_trans)
+                    self.difficulty = data.get('difficulty', self.difficulty)
             except (IOError, json.JSONDecodeError):
                 pass
 
@@ -53,6 +56,7 @@ class DiscardToken:
         data = {
             'chain': self.chain,
             'pending': self.current_trans,
+            'difficulty': self.difficulty,
         }
         try:
             with open(self.storage_file, 'w') as f:
@@ -283,14 +287,22 @@ class DiscardToken:
             block_hash = self.get_block_hash(block)
         return block_hash
 
+    def adjust_difficulty(self, elapsed):
+        if elapsed < self.target_block_time * 0.5 and self.difficulty < self.max_difficulty:
+            self.difficulty += 1
+        elif elapsed > self.target_block_time * 1.5 and self.difficulty > 1:
+            self.difficulty -= 1
+        self._save_state()
+
     def mine(self, miner_address=None):
         if miner_address:
             self.issue_newly_generated_coins(miner_address, self.mining_reward)
         if not self.current_trans:
             return {'status': False, 'error': 'No transactions to mine'}
+        start_time = time.time()
         block = {
             'index': self.get_last_index() + 1,
-            'timestamp': time.time(),
+            'timestamp': start_time,
             'transactions': self.current_trans.copy(),
             'previous_hash': self.get_last_block_hash(),
             'nonce': 0
@@ -299,7 +311,9 @@ class DiscardToken:
         block['hash'] = block_hash
         self.current_trans = []
         added = self.add_block(block)
+        end_time = time.time()
         if added and self.is_chain_valid():
+            self.adjust_difficulty(end_time - start_time)
             return {'status': True, 'block': block}
         return {'status': False, 'block': block}
 
