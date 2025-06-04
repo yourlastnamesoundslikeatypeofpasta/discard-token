@@ -45,6 +45,13 @@ The mining difficulty automatically adjusts after each block to target
 approximately one second per block. The difficulty will never fall below
 1 or rise above 6.
 
+## Peer Networking
+
+Each node generates its own key pair and signs messages when broadcasting
+transactions or blocks. Peers must register with one another using
+`POST /register-peer` and provide their public key. Signed data is verified
+on receipt before being added to the chain.
+
 ## Available Endpoints
 
 * `GET /chain` – retrieve the entire blockchain
@@ -59,6 +66,9 @@ approximately one second per block. The difficulty will never fall below
 * `GET /tx/largest-transaction` – highest value transaction
 * `GET /tx/average-transaction` – average transaction value
 * `GET /pending-transactions` – list unmined transactions
+* `POST /register-peer` – register another node's URL and public key
+* `POST /p2p/transaction` – receive a signed transaction from a peer
+* `POST /p2p/block` – receive a signed block from a peer
 
 ## SDK Usage
 
