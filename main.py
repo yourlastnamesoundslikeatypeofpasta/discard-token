@@ -1,4 +1,5 @@
 import logging
+import hashlib
 
 from flask import Flask
 from flask import request
@@ -6,6 +7,7 @@ from flask import jsonify
 from flask_restful import reqparse, abort, Api, Resource
 
 from discard_token import DiscardToken
+from p2p import PeerNode
 
 logging.basicConfig(level=logging.DEBUG)
 
@@ -13,6 +15,7 @@ app = Flask(__name__)
 api = Api(app)
 
 blockchain = DiscardToken()
+node = PeerNode(blockchain)
 
 
 class Chain(Resource):
@@ -27,11 +30,14 @@ class Chain(Resource):
     def post(self):
         tx_data = request.get_json(force=True)
         is_transaction_added = blockchain.add_transaction(tx_data)
+        if is_transaction_added.get('status'):
+            node.broadcast_transaction(tx_data)
 
         # add block to chain
         if is_transaction_added.get('status'):
             is_block_mined = blockchain.mine()
             if is_block_mined.get('status'):
+                node.broadcast_block(is_block_mined['block'])
                 return is_block_mined, 201
             else:
                 return is_block_mined, 404
@@ -175,6 +181,7 @@ class Mine(Resource):
         miner_address = args.get('miner_address')
         result = blockchain.mine(miner_address)
         if result.get('status'):
+            node.broadcast_block(result['block'])
             return result, 201
         return result, 404
 
@@ -196,6 +203,60 @@ class DetermineWinner(Resource):
         return {'winner': winner}, 200
 
 
+class RegisterPeer(Resource):
+
+    def post(self):
+        data = request.get_json(force=True)
+        url = data.get('url')
+        pub = data.get('public_key')
+        if not url or not pub:
+            abort(400, error_code='invalid', error='url and public_key required')
+        node.add_peer(url, pub)
+        return {'status': True, 'node_id': node.node_id}, 201
+
+
+class PeerTransaction(Resource):
+
+    def post(self):
+        data = request.get_json(force=True)
+        tx = data.get('transaction')
+        sig = data.get('signature')
+        pub = data.get('public_key')
+        peer_id = data.get('node_id')
+        if not all([tx, sig, pub, peer_id]):
+            abort(400, error_code='invalid', error='missing data')
+        if peer_id != hashlib.sha256(pub.encode()).hexdigest():
+            return {'status': False, 'error': 'Invalid identity'}, 400
+        if not PeerNode.verify(tx, pub, sig):
+            return {'status': False, 'error': 'Invalid signature'}, 400
+        res = blockchain.add_transaction(tx)
+        if res.get('status'):
+            node.broadcast_transaction(tx)
+            return res, 201
+        return res, 400
+
+
+class PeerBlock(Resource):
+
+    def post(self):
+        data = request.get_json(force=True)
+        block = data.get('block')
+        sig = data.get('signature')
+        pub = data.get('public_key')
+        peer_id = data.get('node_id')
+        if not all([block, sig, pub, peer_id]):
+            abort(400, error_code='invalid', error='missing data')
+        if peer_id != hashlib.sha256(pub.encode()).hexdigest():
+            return {'status': False, 'error': 'Invalid identity'}, 400
+        if not PeerNode.verify(block, pub, sig):
+            return {'status': False, 'error': 'Invalid signature'}, 400
+        added = blockchain.add_block(block)
+        if added and blockchain.is_chain_valid():
+            node.broadcast_block(block)
+            return {'status': True}, 201
+        return {'status': False}, 400
+
+
 api.add_resource(Chain, '/chain')
 api.add_resource(ChainTotalTokens, '/chain/total-tokens')
 api.add_resource(ChainTotalBlocks, '/chain/total-blocks')
@@ -214,6 +275,9 @@ api.add_resource(PendingTransactions, '/pending-transactions')
 api.add_resource(Mine, '/mine')
 api.add_resource(BlockHash, '/chain/block/<int:block_index>/hash')
 api.add_resource(DetermineWinner, '/determine-winner')
+api.add_resource(RegisterPeer, '/register-peer')
+api.add_resource(PeerTransaction, '/p2p/transaction')
+api.add_resource(PeerBlock, '/p2p/block')
 
 if __name__ == '__main__':
     app.run(debug=True)
