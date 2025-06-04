@@ -142,6 +142,66 @@ class Tx(Resource):
         return {"transaction": transaction}, 200
 
 
+class ChainLastBlock(Resource):
+
+    @staticmethod
+    def get():
+        last_block = blockchain.get_chain()[-1]
+        return last_block, 200
+
+
+class ChainValid(Resource):
+
+    @staticmethod
+    def get():
+        return {'is_valid': blockchain.is_chain_valid()}, 200
+
+
+class ChainLastHash(Resource):
+
+    @staticmethod
+    def get():
+        return {'last_hash': blockchain.get_last_block_hash()}, 200
+
+
+class ChainTotalTransactions(Resource):
+
+    @staticmethod
+    def get():
+        total_transactions = sum(len(block['transactions']) for block in blockchain.get_chain())
+        return {'total_transactions': total_transactions}, 200
+
+
+class Mine(Resource):
+    parser = reqparse.RequestParser()
+    parser.add_argument('miner_address', type=str)
+
+    def get(self):
+        args = self.parser.parse_args()
+        miner_address = args.get('miner_address')
+        result = blockchain.mine(miner_address)
+        if result.get('status'):
+            return result, 201
+        return result, 404
+
+
+class BlockHash(Resource):
+
+    @staticmethod
+    def get(block_index):
+        Block.abort_if_block_doesnt_exist(block_index)
+        block = blockchain.get_chain()[block_index]
+        return {'block_hash': blockchain.get_block_hash(block)}, 200
+
+
+class DetermineWinner(Resource):
+
+    @staticmethod
+    def get():
+        winner = blockchain.determine_winner()
+        return {'winner': winner}, 200
+
+
 api.add_resource(Chain, '/chain')
 api.add_resource(ChainTotalTokens, '/chain/total-tokens')
 api.add_resource(ChainTotalBlocks, '/chain/total-blocks')
@@ -152,6 +212,13 @@ api.add_resource(CreateWallet, '/address/create')
 api.add_resource(Tx, '/tx/<string:tx_hash>')
 api.add_resource(TxLargest, '/tx/largest-transaction')
 api.add_resource(TxAverage, '/tx/average-transaction')
+api.add_resource(ChainLastBlock, '/chain/last-block')
+api.add_resource(ChainValid, '/chain/valid')
+api.add_resource(ChainLastHash, '/chain/last-hash')
+api.add_resource(ChainTotalTransactions, '/chain/total-transactions')
+api.add_resource(Mine, '/mine')
+api.add_resource(BlockHash, '/chain/block/<int:block_index>/hash')
+api.add_resource(DetermineWinner, '/determine-winner')
 
 if __name__ == '__main__':
     app.run(debug=True)
