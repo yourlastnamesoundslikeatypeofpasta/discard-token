@@ -70,3 +70,19 @@ def test_get_tx_pending_and_mined():
     assert chain.get_tx(tx_hash) is not None
     chain.mine()
     assert chain.get_tx(tx_hash) is not None
+
+
+def test_pending_outgoing_reduces_available_balance():
+    chain = DiscardToken()
+    wallet = chain.create_wallet()
+    chain.mine(wallet['address'])
+    first_recipient = chain.create_wallet()
+    tx1 = chain.create_transaction(wallet['address'], first_recipient['address'], 30, wallet['private_key'])
+    res1 = chain.add_transaction(tx1)
+    assert res1['status']
+    balance = chain.get_wallet_balance(wallet['address'])
+    assert balance['pending_outgoing'] == 30
+    second_recipient = chain.create_wallet()
+    tx2 = chain.create_transaction(wallet['address'], second_recipient['address'], 30, wallet['private_key'])
+    res2 = chain.add_transaction(tx2)
+    assert res2['status'] is False

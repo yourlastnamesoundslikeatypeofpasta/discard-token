@@ -125,7 +125,9 @@ class DiscardToken:
         sender = transaction['sender']
         amount = transaction['amount']
         sender_balance = self.get_wallet_balance(sender).get('balance')
-        if sender_balance > amount:
+        pending_outgoing = self.get_pending_outgoing_total(sender)
+        available_balance = sender_balance - pending_outgoing
+        if available_balance > amount:
             self.current_trans.append(transaction)
             self._save_state()
             return {'status': True, 'transaction': transaction}
@@ -173,6 +175,14 @@ class DiscardToken:
         """Return transactions waiting to be mined."""
         return self.current_trans
 
+    def get_pending_outgoing_total(self, address):
+        """Total amount of tokens this address has in pending outgoing tx."""
+        total = 0
+        for tx in self.current_trans:
+            if tx.get('sender') == address:
+                total += tx.get('amount', 0)
+        return total
+
     def get_all_addresses(self):
         address_lst = []
         for block in self.chain:
@@ -205,10 +215,14 @@ class DiscardToken:
 
         # find difference
         wallet_balance = amount_received - amount_sent
-        return {'amount_received': amount_received,
-                'amount_sent': amount_sent,
-                'transactions': transactions,
-                'balance': wallet_balance}
+        pending_outgoing = self.get_pending_outgoing_total(address)
+        return {
+            'amount_received': amount_received,
+            'amount_sent': amount_sent,
+            'transactions': transactions,
+            'balance': wallet_balance,
+            'pending_outgoing': pending_outgoing,
+        }
 
     def get_largest_transaction_amount(self):
         transaction_amount_lst = self.get_transaction_amount_lst()
