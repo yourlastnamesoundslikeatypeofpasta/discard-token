@@ -1,0 +1,15 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Create Wallet</title>
+</head>
+<body>
+    <h1>New Wallet</h1>
+    <p><strong>Address:</strong> {{ wallet['address'] }}</p>
+    <h2>Private Key</h2>
+    <pre>{{ wallet['private_key'] }}</pre>
+    <h2>Public Key</h2>
+    <pre>{{ wallet['public_key'] }}</pre>
+    <p><a href="{{ url_for('index') }}">Back</a></p>
+</body>
+</html>

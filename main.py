@@ -1,9 +1,11 @@
 import logging
 import hashlib
+import json
 
 from flask import Flask
 from flask import request
 from flask import jsonify
+from flask import render_template
 from flask_restful import reqparse, abort, Api, Resource
 
 from discard_token import DiscardToken
@@ -255,6 +257,25 @@ class PeerBlock(Resource):
             node.broadcast_block(block)
             return {'status': True}, 201
         return {'status': False}, 400
+
+
+# ----- Simple HTML Frontend Routes -----
+@app.route('/')
+def index():
+    total_blocks = blockchain.get_last_index() + 1
+    return render_template('index.html', total_blocks=total_blocks)
+
+
+@app.route('/chain/view')
+def chain_page():
+    chain_json = json.dumps(blockchain.get_chain(), indent=2)
+    return render_template('chain.html', chain_json=chain_json)
+
+
+@app.route('/wallet/create')
+def create_wallet_page():
+    wallet = blockchain.create_wallet()
+    return render_template('create_wallet.html', wallet=wallet)
 
 
 api.add_resource(Chain, '/chain')
