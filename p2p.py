@@ -1,6 +1,8 @@
 import os
 import json
 import hashlib
+import logging
+import time
 from typing import Dict
 
 import requests
@@ -52,12 +54,16 @@ class PeerNode:
             try:
                 with open(self.peers_file, 'w') as f:
                     json.dump(self.peers, f)
-            except IOError:
-                pass
+            except IOError as e:
+                logging.exception("Failed to save peers: %s", e)
 
     def add_peer(self, url: str, public_key: str) -> None:
         peer_id = hashlib.sha256(public_key.encode()).hexdigest()
-        self.peers[peer_id] = {'url': url.rstrip('/'), 'public_key': public_key}
+        self.peers[peer_id] = {
+            'url': url.rstrip('/'),
+            'public_key': public_key,
+            'last_seen': time.time(),
+        }
         self._save_peers()
 
     def sign(self, data) -> str:
@@ -79,12 +85,15 @@ class PeerNode:
             return False
 
     def _broadcast(self, endpoint: str, message: dict) -> None:
-        for peer in list(self.peers.values()):
+        for peer_id, peer in list(self.peers.items()):
             url = peer['url'] + endpoint
             try:
                 requests.post(url, json=message, timeout=3)
-            except requests.RequestException:
-                continue
+                self.peers[peer_id]['last_seen'] = time.time()
+            except requests.RequestException as e:
+                logging.warning("Failed to reach peer %s at %s: %s", peer_id, url, e)
+                self.peers.pop(peer_id, None)
+                self._save_peers()
 
     def broadcast_transaction(self, transaction: dict) -> None:
         msg = {

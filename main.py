@@ -30,7 +30,13 @@ class Chain(Resource):
 
     # add transaction and block to blockchain
     def post(self):
-        tx_data = request.get_json(force=True)
+        tx_data = request.get_json(silent=True) or {}
+        required = {
+            'sender', 'recipient', 'amount', 'signature',
+            'public_key', 'transaction_hash', 'timestamp', 'nonce'
+        }
+        if not required.issubset(tx_data):
+            abort(400, error_code='invalid', error='Missing transaction fields')
         is_transaction_added = blockchain.add_transaction(tx_data)
         if is_transaction_added.get('status'):
             node.broadcast_transaction(tx_data)
@@ -216,7 +222,7 @@ class DetermineWinner(Resource):
 class RegisterPeer(Resource):
 
     def post(self):
-        data = request.get_json(force=True)
+        data = request.get_json(silent=True) or {}
         url = data.get('url')
         pub = data.get('public_key')
         if not url or not pub:
@@ -228,7 +234,7 @@ class RegisterPeer(Resource):
 class PeerTransaction(Resource):
 
     def post(self):
-        data = request.get_json(force=True)
+        data = request.get_json(silent=True) or {}
         tx = data.get('transaction')
         sig = data.get('signature')
         pub = data.get('public_key')
@@ -249,7 +255,7 @@ class PeerTransaction(Resource):
 class PeerBlock(Resource):
 
     def post(self):
-        data = request.get_json(force=True)
+        data = request.get_json(silent=True) or {}
         block = data.get('block')
         sig = data.get('signature')
         pub = data.get('public_key')
@@ -279,11 +285,6 @@ def chain_page():
     chain_json = json.dumps(blockchain.get_chain(), indent=2)
     return render_template('chain.html', chain_json=chain_json)
 
-
-@app.route('/wallet/create')
-def create_wallet_page():
-    wallet = blockchain.create_wallet()
-    return render_template('create_wallet.html', wallet=wallet)
 
 
 api.add_resource(Chain, '/chain')
