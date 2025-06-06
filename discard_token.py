@@ -3,6 +3,7 @@ import random
 import hashlib
 import json
 import time
+import logging
 from statistics import mean, median
 import string
 
@@ -50,8 +51,8 @@ class DiscardToken:
                     self.chain = data.get('chain', self.chain)
                     self.current_trans = data.get('pending', self.current_trans)
                     self.difficulty = data.get('difficulty', self.difficulty)
-            except (IOError, json.JSONDecodeError):
-                pass
+            except (IOError, json.JSONDecodeError) as e:
+                logging.exception("Failed to load blockchain state: %s", e)
 
     def _save_state(self):
         """Persist chain and pending transactions to disk."""
@@ -63,8 +64,8 @@ class DiscardToken:
         try:
             with open(self.storage_file, 'w') as f:
                 json.dump(data, f)
-        except IOError:
-            pass
+        except IOError as e:
+            logging.exception("Failed to save blockchain state: %s", e)
 
     def create_transaction(self, sender, recipient, amount, private_key_pem=None, fee=None):
         """Create and sign a transaction dict."""
@@ -153,8 +154,9 @@ class DiscardToken:
         previous_hash = self.get_last_block_hash()
         if block['previous_hash'] != previous_hash:
             return False
+        difficulty = block.get('difficulty', self.difficulty)
         block_hash = self.get_block_hash({k: block[k] for k in block if k != 'hash'})
-        if not block_hash.startswith('0' * self.difficulty):
+        if not block_hash.startswith('0' * difficulty):
             return False
         if block_hash != block['hash']:
             return False
@@ -169,8 +171,9 @@ class DiscardToken:
             prev_hash = self.get_block_hash({k: previous[k] for k in previous if k != 'hash'})
             if current['previous_hash'] != prev_hash:
                 return False
+            difficulty = current.get('difficulty', self.difficulty)
             calculated_hash = self.get_block_hash({k: current[k] for k in current if k != 'hash'})
-            if not calculated_hash.startswith('0' * self.difficulty):
+            if not calculated_hash.startswith('0' * difficulty):
                 return False
             if calculated_hash != current['hash']:
                 return False
@@ -299,8 +302,9 @@ class DiscardToken:
 
     def proof_of_work(self, block):
         block['nonce'] = 0
+        difficulty = block.get('difficulty', self.difficulty)
         block_hash = self.get_block_hash(block)
-        while not block_hash.startswith('0' * self.difficulty):
+        while not block_hash.startswith('0' * difficulty):
             block['nonce'] += 1
             block_hash = self.get_block_hash(block)
         return block_hash
@@ -312,6 +316,17 @@ class DiscardToken:
             self.difficulty -= 1
         self._save_state()
 
+    def create_block(self, transactions, timestamp=None):
+        """Create a new block structure without proof of work."""
+        return {
+            'index': self.get_last_index() + 1,
+            'timestamp': timestamp or time.time(),
+            'transactions': transactions,
+            'previous_hash': self.get_last_block_hash(),
+            'difficulty': self.difficulty,
+            'nonce': 0,
+        }
+
     def mine(self, miner_address=None):
         total_fees = sum(tx.get('fee', 0) for tx in self.current_trans)
         if miner_address:
@@ -319,13 +334,7 @@ class DiscardToken:
         if not self.current_trans:
             return {'status': False, 'error': 'No transactions to mine'}
         start_time = time.time()
-        block = {
-            'index': self.get_last_index() + 1,
-            'timestamp': start_time,
-            'transactions': self.current_trans.copy(),
-            'previous_hash': self.get_last_block_hash(),
-            'nonce': 0
-        }
+        block = self.create_block(self.current_trans.copy(), timestamp=start_time)
         block_hash = self.proof_of_work(block)
         block['hash'] = block_hash
         self.current_trans = []
