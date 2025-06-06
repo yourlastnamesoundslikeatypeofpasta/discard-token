@@ -3,7 +3,7 @@ import random
 import hashlib
 import json
 import time
-from statistics import mean
+from statistics import mean, median
 import string
 
 from cryptography.hazmat.primitives import hashes, serialization
@@ -253,6 +253,13 @@ class DiscardToken:
     def get_average_transaction_amount(self):
         transaction_amount_lst = self.get_transaction_amount_lst()
         return mean(transaction_amount_lst)
+
+    def get_median_transaction_amount(self):
+        """Return the median value of all transactions on the chain."""
+        amounts = self.get_transaction_amount_lst()
+        if not amounts:
+            return 0
+        return median(amounts)
 
     def get_total_tokens(self):
         # sum all transactions

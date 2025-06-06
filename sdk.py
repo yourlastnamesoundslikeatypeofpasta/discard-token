@@ -136,6 +136,11 @@ class SDKChain:
         resp = requests.get(url)
         return {'status': resp.status_code, 'data': resp.json()}
 
+    def get_median_transaction(self):
+        url = os.path.join(self.chain_path, 'median-transaction')
+        resp = requests.get(url)
+        return {'status': resp.status_code, 'data': resp.json()}
+
     def get_pending_transactions(self):
         url = os.path.join('http://127.0.0.1:5000', 'pending-transactions')
         resp = requests.get(url)

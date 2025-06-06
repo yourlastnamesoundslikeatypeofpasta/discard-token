@@ -65,6 +65,7 @@ on receipt before being added to the chain.
 * `GET /tx/<hash>` – fetch a transaction by its hash
 * `GET /tx/largest-transaction` – highest value transaction
 * `GET /tx/average-transaction` – average transaction value
+* `GET /tx/median-transaction` – median transaction value
 * `GET /pending-transactions` – list unmined transactions
 * `POST /register-peer` – register another node's URL and public key
 * `POST /p2p/transaction` – receive a signed transaction from a peer

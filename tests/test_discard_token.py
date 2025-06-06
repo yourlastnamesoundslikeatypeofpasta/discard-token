@@ -86,3 +86,17 @@ def test_pending_outgoing_reduces_available_balance():
     tx2 = chain.create_transaction(wallet['address'], second_recipient['address'], 30, wallet['private_key'])
     res2 = chain.add_transaction(tx2)
     assert res2['status'] is False
+
+
+def test_median_transaction_amount():
+    chain = DiscardToken()
+    wallet = chain.create_wallet()
+    chain.mine(wallet['address'])
+    rec1 = chain.create_wallet()
+    rec2 = chain.create_wallet()
+    tx1 = chain.create_transaction(wallet['address'], rec1['address'], 10, wallet['private_key'])
+    tx2 = chain.create_transaction(wallet['address'], rec2['address'], 20, wallet['private_key'])
+    chain.add_transaction(tx1)
+    chain.add_transaction(tx2)
+    chain.mine()
+    assert chain.get_median_transaction_amount() == 20
