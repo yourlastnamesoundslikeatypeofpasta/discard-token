@@ -28,9 +28,10 @@ identifies it on the chain. Transactions are signed using the sender's
 private key. Wallet addresses are derived from the SHA256 hash of the
 public key.
 
-The blockchain state is stored in `chain_data.json` in the project
-directory so that the chain and the mempool of pending transactions
-survive server restarts.
+The blockchain state is stored in a SQLite database `chain_data.db`
+in the project directory so that the chain and the mempool of pending
+transactions survive server restarts. The database file will be created
+automatically if it does not exist.
 
 Balances include pending outgoing transfers so double spends cannot be
 submitted before mining completes.
@@ -104,9 +105,8 @@ project:
      behavior.
 
 2. **Persistence Improvements**
-   - Replace the JSON-based `chain_data.json` with a lightweight database such
-     as SQLite.
-   - Provide serialization and migration tools for backward compatibility.
+   - The chain state is now stored in a SQLite database `chain_data.db`.
+   - Future work could include migration tools for backward compatibility.
 
 3. **Peer Networking Enhancements**
    - Implement peer discovery and automatic reconnect logic in `p2p.py`.
