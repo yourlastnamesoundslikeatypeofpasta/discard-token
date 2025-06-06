@@ -92,6 +92,42 @@ SDKChain.save_wallet(wallet, 'wallet.dat', 'my-password')
 wallet = SDKChain.load_wallet('wallet.dat', 'my-password')
 ```
 
+## Roadmap
+
+The following high-level roadmap outlines potential directions for extending the
+project:
+
+1. **Environment & Testing**
+   - Install dependencies from `requirements.txt`.
+   - Run the test suite in `tests/` and extend it to cover networking and SDK
+     behavior.
+
+2. **Persistence Improvements**
+   - Replace the JSON-based `chain_data.json` with a lightweight database such
+     as SQLite.
+   - Provide serialization and migration tools for backward compatibility.
+
+3. **Peer Networking Enhancements**
+   - Implement peer discovery and automatic reconnect logic in `p2p.py`.
+   - Add authentication or whitelisting so nodes can control which peers may
+     connect.
+
+4. **API and SDK Expansion**
+   - Document all endpoints in detail and consider API versioning.
+   - Extend `sdk.py` with helpers for wallet management and peer registration,
+     and offer a CLI or web interface for interacting with the chain.
+
+5. **Consensus & Security**
+   - Evaluate alternative consensus mechanisms or refine proof-of-work
+     difficulty adjustments.
+   - Enhance transaction validation and add rate limiting to reduce spam.
+
+6. **Deployment and Monitoring**
+   - Provide Docker or similar containerization scripts for easier deployment.
+   - Add logging, metrics and dashboards to monitor node health and
+     performance.
+
+
 ## License
 
 This project is provided for educational purposes.
