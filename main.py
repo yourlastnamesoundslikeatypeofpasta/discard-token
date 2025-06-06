@@ -63,6 +63,14 @@ class TxAverage(Resource):
         return average_transaction, 200
 
 
+class TxMedian(Resource):
+
+    @staticmethod
+    def get():
+        median_transaction = {'median_transaction': blockchain.get_median_transaction_amount()}
+        return median_transaction, 200
+
+
 class ChainTotalTokens(Resource):
 
     @staticmethod
@@ -288,6 +296,7 @@ api.add_resource(CreateWallet, '/address/create')
 api.add_resource(Tx, '/tx/<string:tx_hash>')
 api.add_resource(TxLargest, '/tx/largest-transaction')
 api.add_resource(TxAverage, '/tx/average-transaction')
+api.add_resource(TxMedian, '/tx/median-transaction')
 api.add_resource(ChainLastBlock, '/chain/last-block')
 api.add_resource(ChainValid, '/chain/valid')
 api.add_resource(ChainLastHash, '/chain/last-hash')
