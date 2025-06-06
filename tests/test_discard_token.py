@@ -2,7 +2,7 @@ import os,sys; sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(_
 import pytest
 from discard_token import DiscardToken
 
-CHAIN_FILE = 'chain_data.json'
+CHAIN_FILE = 'chain_data.db'
 
 def setup_function(function):
     if os.path.exists(CHAIN_FILE):

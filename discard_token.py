@@ -4,6 +4,7 @@ import hashlib
 import json
 import time
 import logging
+import sqlite3
 from statistics import mean, median
 import string
 
@@ -13,7 +14,7 @@ from cryptography.exceptions import InvalidSignature
 
 
 class DiscardToken:
-    def __init__(self, storage_file='chain_data.json'):
+    def __init__(self, storage_file='chain_data.db'):
         self.tx_fee = 1
         self.genesis_hash = self.hash_str('DISKARDDDD DOLLARRRR TO THE MOONNNNNN!🚀')
         self.genesis_tokens = 99999999999999
@@ -39,32 +40,56 @@ class DiscardToken:
         self.chain = [self.genesis_block]
         self.current_trans = []
         self.storage_file = storage_file
+        self._init_db()
         self._load_state()
         self._save_state()
 
-    def _load_state(self):
-        """Load chain and pending transactions from disk if available."""
-        if os.path.exists(self.storage_file):
+    def _init_db(self):
+        """Create the database and state table if they do not exist."""
+        self.conn = sqlite3.connect(self.storage_file)
+        with self.conn:
+            self.conn.execute(
+                "CREATE TABLE IF NOT EXISTS state (key TEXT PRIMARY KEY, value TEXT)"
+            )
+
+    def __del__(self):
+        if hasattr(self, 'conn'):
             try:
-                with open(self.storage_file, 'r') as f:
-                    data = json.load(f)
-                    self.chain = data.get('chain', self.chain)
-                    self.current_trans = data.get('pending', self.current_trans)
-                    self.difficulty = data.get('difficulty', self.difficulty)
-            except (IOError, json.JSONDecodeError) as e:
-                logging.exception("Failed to load blockchain state: %s", e)
+                self.conn.close()
+            except Exception:
+                pass
+
+    def _load_state(self):
+        """Load chain and pending transactions from the database if available."""
+        try:
+            cur = self.conn.cursor()
+            for key, attr in (
+                ("chain", "chain"),
+                ("pending", "current_trans"),
+                ("difficulty", "difficulty"),
+            ):
+                row = cur.execute("SELECT value FROM state WHERE key=?", (key,)).fetchone()
+                if row is not None:
+                    value = json.loads(row[0])
+                    setattr(self, attr, value)
+        except (sqlite3.DatabaseError, json.JSONDecodeError) as e:
+            logging.exception("Failed to load blockchain state: %s", e)
 
     def _save_state(self):
-        """Persist chain and pending transactions to disk."""
+        """Persist chain and pending transactions to the database."""
         data = {
-            'chain': self.chain,
-            'pending': self.current_trans,
-            'difficulty': self.difficulty,
+            'chain': json.dumps(self.chain),
+            'pending': json.dumps(self.current_trans),
+            'difficulty': json.dumps(self.difficulty),
         }
         try:
-            with open(self.storage_file, 'w') as f:
-                json.dump(data, f)
-        except IOError as e:
+            with self.conn:
+                for k, v in data.items():
+                    self.conn.execute(
+                        "INSERT OR REPLACE INTO state (key, value) VALUES (?, ?)",
+                        (k, v),
+                    )
+        except sqlite3.DatabaseError as e:
             logging.exception("Failed to save blockchain state: %s", e)
 
     def create_transaction(self, sender, recipient, amount, private_key_pem=None, fee=None):
